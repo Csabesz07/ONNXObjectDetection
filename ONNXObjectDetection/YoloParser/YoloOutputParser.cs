@@ -218,4 +218,53 @@ public class YoloOutputParser
 
         return boxes;
     }
+
+    public IList<YoloBoundingBox> FilterBoundingBoxes(IList<YoloBoundingBox> boxes, int limit, float threshold)
+    {
+        var activeCount = boxes.Count;
+        var isActiveBoxes = new bool[boxes.Count];
+
+        for (int i = 0; i < isActiveBoxes.Length; i++)
+            isActiveBoxes[i] = true;
+
+        var sortedBoxes = boxes.Select((b, i) => new { Box = b, Index = i })
+                    .OrderByDescending(b => b.Box.Confidence)
+                    .ToList();
+
+        var results = new List<YoloBoundingBox>();
+
+        for (int i = 0; i < boxes.Count; i++)
+        {
+            if (isActiveBoxes[i])
+            {
+                var boxA = sortedBoxes[i].Box;
+                results.Add(boxA);
+
+                if (results.Count >= limit)
+                    break;
+
+                for (var j = i + 1; j < boxes.Count; j++)
+                {
+                    if (isActiveBoxes[j])
+                    {
+                        var boxB = sortedBoxes[j].Box;
+
+                        if (IntersectionOverUnion(boxA.Rect, boxB.Rect) > threshold)
+                        {
+                            isActiveBoxes[j] = false;
+                            activeCount--;
+
+                            if (activeCount <= 0)
+                                break;
+                        }
+                    }
+                }
+
+                if (activeCount <= 0)
+                    break;
+            }
+        }
+
+        return results;
+    }
 }
